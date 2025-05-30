@@ -11,14 +11,17 @@
 class Server
 {
 public:
-    Server();
+    Server(int port);
     ~Server();
-   void Run();
-   void Listen();
-   void Accept();
+    void run();
 
 private:
-    int m_SocketFd, m_SocketNew;
-    sockaddr_in m_Address;
-    socklen_t m_AddressLength;
+    int m_serverfd;
+    int m_clientfd;
+    int m_port;
+
+
+
+    void init();
+    void handle_client();
 };

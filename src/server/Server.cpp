@@ -1,48 +1,86 @@
 #include "Server.hpp"
+#include <cstdlib>
+#include <string>
+#include <sys/socket.h>
 
 #define PORT 22001
 
-Server::Server() {
-    //socket
-    //bind
-    //listen
-    //accept
-    std::cout << "Initializing server..." << std::endl;
-    m_SocketFd = socket(AF_INET, SOCK_STREAM, 0);  
-    if(m_SocketFd < 0) {
-        std::perror("Error: Can't create socket!"); 
-    }
-    
-    m_Address.sin_family = AF_INET;
-    m_Address.sin_addr.s_addr = INADDR_ANY;
-    m_Address.sin_port = htons(PORT);
-
-
-    socklen_t addressLength  = sizeof(m_Address);
-    if(bind(m_SocketFd, reinterpret_cast<struct sockaddr*>(&m_Address), addressLength) < 0) {
-        std::perror("Error: Can't bind socket!");
-    }
+Server::Server(int port) : m_port(port){
+    init();
 }
 
 
 Server::~Server() {
-   close(m_SocketFd); 
+   close(m_serverfd); 
+   close(m_clientfd);
 }
 
 
-void Server::Listen() {
-    if(listen(m_SocketFd, 3) < 0) {
-        std::perror("Error: Listen failed!");
+
+void Server::init() {
+    m_serverfd = socket(AF_INET, SOCK_STREAM, 0);
+    if(m_serverfd < 0) {
+        std::perror("ERROR: Cannot create socket!");
+        exit(EXIT_FAILURE);
     }
-}
+    
+    sockaddr_in addr; 
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(m_port);
 
-void Server::Accept() {
-    socklen_t addressLength  = sizeof(m_Address);
-    m_SocketNew = accept(m_SocketFd, reinterpret_cast<struct sockaddr*>(&m_Address), &addressLength);
-    if(m_SocketNew < 0) {
-        std::perror("Error: Accept failed!");
+    if (bind(m_serverfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        std::perror("ERROR: Cannot bind socket!");
+        exit(EXIT_FAILURE);
     }
 
+
+    if(listen(m_serverfd, 1) < 0) {
+        std::perror("ERROR: Listen error!");
+        exit(EXIT_FAILURE);
+    }
+
+    std::cout << "[+] Listening on port : " << m_port << std::endl;
+
+
+
 }
-void Server::Run() {
+
+
+
+void Server::run() {
+    sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+
+    m_clientfd = accept(m_serverfd, (struct sockaddr*)&client_addr, &client_len);
+
+    if(m_clientfd < 0) {
+        std::perror("ERROR: Cannot accept connection!");
+        return;
+    }
+
+    std::cout << "[+] Client connected!" << std::endl;
+    handle_client();
+    
 }
+
+
+void Server::handle_client() {
+    const size_t buffer_size = 1024;
+    char buffer[buffer_size];
+
+
+    for(;;) {
+        ssize_t bytes = read(m_clientfd, buffer, buffer_size);
+        if(bytes <= 0)
+            break;
+
+        std::cout << "[Recieved >] : " << std::string(buffer, bytes);
+        //Echo
+        write(m_clientfd, buffer, bytes);
+    }
+
+    std::cout << "[*] Client disconnected." << std::endl;
+}
+
+
